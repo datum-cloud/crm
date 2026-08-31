@@ -31,6 +31,14 @@ export const handoff = z.object({
 export type Handoff = z.infer<typeof handoff>;
 export type HandoffChannel = z.infer<typeof handoffChannel>;
 
+export const dailyDealSweepHandoff = z.object({
+	inactiveForDays: z.number().int().min(1).max(365),
+	status: z.enum(["open", "all"]).default("open"),
+	channel: handoffChannel.nullable(),
+});
+
+export type DailyDealSweepHandoff = z.infer<typeof dailyDealSweepHandoff>;
+
 export const inputOption = z.object({
 	id: z.string().min(1),
 	label: z.string().min(1),

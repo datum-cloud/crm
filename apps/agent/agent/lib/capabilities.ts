@@ -9,6 +9,11 @@ export const CONTEXT_DEV_PEOPLE = "CONTEXT_DEV_PEOPLE";
 
 export const CONTEXT_DEV_SOURCE = "Context.dev key (Settings → General)";
 
+export const WEB_RESEARCH = "WEB_RESEARCH";
+
+export const WEB_RESEARCH_SOURCE =
+	"PERPLEXITY_API_KEY, or AI Gateway credentials (AI_GATEWAY_API_KEY or Vercel OIDC)";
+
 export type Capability = {
 	readonly id: string;
 	readonly label: string;
@@ -44,12 +49,19 @@ export function capabilitiesFrom(
 		enabled: Boolean(process.env[id]?.trim()),
 	});
 
+	const webResearchConfigured =
+		Boolean(process.env.PERPLEXITY_API_KEY?.trim()) ||
+		Boolean(process.env.AI_GATEWAY_API_KEY?.trim()) ||
+		Boolean(process.env.VERCEL_OIDC_TOKEN?.trim());
+
 	return [
 		{
-			...fromEnv("PERPLEXITY_API_KEY"),
+			id: WEB_RESEARCH,
+			from: WEB_RESEARCH_SOURCE,
 			label: "Web research",
 			gives:
 				"open-web context with citations, and the search that finds a LinkedIn slug in the first place",
+			enabled: webResearchConfigured,
 		},
 		{
 			id: CONTEXT_DEV,

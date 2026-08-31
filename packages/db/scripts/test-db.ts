@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
+import "@crm/env/load";
 import pg from "pg";
 
 const SCHEMA = join(dirname(import.meta.dirname), "prisma", "schema.prisma");

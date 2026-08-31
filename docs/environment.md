@@ -111,11 +111,16 @@ single place that knows what is set.
 
 | Variable | What it adds |
 | --- | --- |
-| `PERPLEXITY_API_KEY` | Open-web research with citations; finds a LinkedIn slug |
 | `GITHUB_TOKEN` | Raises the GitHub rate limit from 60/hour |
 | `BLOB_READ_WRITE_TOKEN` | Mirrors logos and photos into Blob |
-| `AI_GATEWAY_API_KEY` | The model. Not needed on Vercel (OIDC) |
+| `AI_GATEWAY_API_KEY` | The model, and open-web research with citations. Not needed on Vercel (OIDC) |
 | `AGENT_BRIDGE_SECRET` | The rep-facing Agent panel — see `agent.md` |
+
+Open-web research rides on `AI_GATEWAY_API_KEY` (Vercel AI Gateway's own
+Perplexity-search tool) by default — no dedicated key needed. Set
+`PERPLEXITY_API_KEY` to call Perplexity's API directly instead; when it's
+set, it always wins over the Gateway path. See
+`docs/features/web-research-backend.md` for why, and how each path works.
 
 `BLOB_READ_WRITE_TOKEN` is also in `env.validation.ts` and `apps/api/turbo.json`
 because the API and the seed write pictures too. The Next.js app is deliberately

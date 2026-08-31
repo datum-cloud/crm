@@ -32,7 +32,19 @@ Always send `triggers` as an array, including when the agent has only one.
 Make the smallest agent that solves the stated pain. Its instructions must say
 exactly when it runs, which CRM records it may read, what output or CRM action
 it may produce, and when it must stop. Preserve the user's meaning and wording
-where that is clearer than a rewrite.
+where that is clearer than a rewrite. For a staleness, inactivity, or
+pipeline-sweep request, state the exact stage filter (open, won, lost, or all)
+and the exact number of days of inactivity in the written instructions, since
+the deployed agent lists deals by those exact criteria. For a request to
+watch specific named companies for news — product launches, hires, funding,
+or events — build a `SCHEDULE` agent with `SELECTED` scope over the exact
+tagged companies, a `crm.activity.create` action authorized for `NOTE`
+(each new finding is logged directly on that company's own record), a
+`run.summary` action, and a `slack.message.post` action when the user names
+themselves or a channel as the destination. State in the instructions that
+the agent must check its own recent run history before reporting to avoid
+repeating a finding, and that each genuinely new finding is logged as one
+NOTE on its company.
 
 The currently executable action types are `crm.activity.create` for CRM notes
 and tasks, `run.summary` for a logged result with no external side effect, and

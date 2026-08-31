@@ -66,6 +66,19 @@ const biggestOpenDealOutput = z.object({
 	stageChangedAt: z.string(),
 });
 
+const staleDealOutput = z.object({
+	id: z.string(),
+	name: z.string(),
+	stage: stageEnum,
+	currency: z.string(),
+	company: companyBriefOutput,
+	owner: ownerOutput,
+	amountCents: z.number().nullable(),
+	baseAmountCents: z.number().nullable(),
+	lastActivityAt: z.string().nullable(),
+	daysSinceLastActivity: z.number(),
+});
+
 const overdueTaskOutput = z.object({
 	id: z.string(),
 	subject: z.string().nullable(),
@@ -108,6 +121,7 @@ export const dashboardSummaryOutput = z.object({
 	trend: z.array(trendPointOutput),
 	closingThisMonthTotal: monthlyTotalOutput,
 	biggestOpen: z.array(biggestOpenDealOutput),
+	staleDeals: z.array(staleDealOutput),
 	overdueTasks: z.array(overdueTaskOutput),
 	recentActivity: z.array(recentActivityOutput),
 });

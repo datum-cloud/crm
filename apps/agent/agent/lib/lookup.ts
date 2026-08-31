@@ -51,6 +51,7 @@ export type DealListOptions = {
 	inactiveForDays?: number;
 	companyId?: string;
 	ownerId?: string;
+	ids?: string[];
 	limit?: number;
 	cursor?: string;
 	now?: Date;
@@ -77,6 +78,7 @@ export async function listDeals(options: DealListOptions = {}) {
 
 	const rows = await db.deal.findMany({
 		where: {
+			id: options.ids ? { in: options.ids } : undefined,
 			stage: stages ? { in: stages } : undefined,
 			companyId: options.companyId ?? undefined,
 			ownerId: options.ownerId ?? undefined,

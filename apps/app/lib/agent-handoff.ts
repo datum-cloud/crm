@@ -1,6 +1,11 @@
-import { type Handoff, schemas } from "@crm/validation";
+import {
+	type DailyDealSweepHandoff,
+	type Handoff,
+	type HandoffChannel,
+	schemas,
+} from "@crm/validation";
 
-export function handoffResources(handoff: Handoff) {
+function channelResources(channel: HandoffChannel | null) {
 	return [
 		{
 			kind: "integration" as const,
@@ -8,19 +13,23 @@ export function handoffResources(handoff: Handoff) {
 			label: "Slack",
 			detail: "Connected workspace",
 		},
-		...(handoff.channel
+		...(channel
 			? [
 					{
 						kind: "integration" as const,
-						id: `slack:channel:${handoff.channel.id}`,
-						label: `#${handoff.channel.name}`,
-						detail: handoff.channel.isMember
+						id: `slack:channel:${channel.id}`,
+						label: `#${channel.name}`,
+						detail: channel.isMember
 							? "Comp AI is a member"
 							: "Comp AI is not in this channel yet",
 					},
 				]
 			: []),
 	];
+}
+
+export function handoffResources(handoff: Handoff) {
+	return channelResources(handoff.channel);
 }
 
 export function handoffBrief(handoff: Handoff): string {
@@ -41,6 +50,31 @@ export function handoffBrief(handoff: Handoff): string {
 			),
 		].join("\n"),
 	);
+
+	return lines.join("\n\n");
+}
+
+export function dailyDealSweepResources(handoff: DailyDealSweepHandoff) {
+	return channelResources(handoff.channel);
+}
+
+export function dailyDealSweepBrief(handoff: DailyDealSweepHandoff): string {
+	const lines = [
+		`Build a scheduled agent that runs once a day and flags ${
+			handoff.status === "open" ? "open" : "any"
+		} deals with no activity for ${handoff.inactiveForDays}+ days.`,
+		"Use a SCHEDULE trigger with a 24-hour interval and WORKSPACE record scope, since this watches the whole pipeline, not one record.",
+	];
+
+	if (handoff.channel) {
+		lines.push(
+			`Post the flagged deals to #${handoff.channel.name} and nowhere else. Do not ask me where to post.`,
+		);
+	} else {
+		lines.push(
+			"Ask me where to post the result if a Slack destination is needed, otherwise log a CRM task per flagged deal.",
+		);
+	}
 
 	return lines.join("\n\n");
 }

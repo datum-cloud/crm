@@ -10,9 +10,16 @@ import {
 import { z } from "zod";
 import { readCompanyHistory, readDealHistory } from "./accounts";
 import { AGENT_ACTION_EXECUTORS, isAgentActionType } from "./agent-actions";
+import {
+	enabled,
+	unavailable,
+	WEB_RESEARCH,
+	WEB_RESEARCH_SOURCE,
+} from "./capabilities";
 import { readCrmHistory } from "./crm";
 import { DISPATCH } from "./dispatch-config";
-import { searchCrm } from "./lookup";
+import { type DealListOptions, listDeals, searchCrm } from "./lookup";
+import { ask } from "./perplexity";
 import {
 	type LockedAgentRun,
 	lockAgentRun,
@@ -194,6 +201,84 @@ export async function queryRunCrm(
 		deals,
 		total: contacts.length + companies.length + deals.length,
 	};
+}
+
+export async function listRunDeals(
+	runId: string,
+	input: Omit<DealListOptions, "ids" | "now">,
+) {
+	const run = await runContext(runId);
+	if (run.recordScope === "WORKSPACE") return listDeals(input);
+
+	const dealIds = run.allowedResources
+		.filter((resource) => resource.kind === "deal")
+		.map((resource) => resource.id);
+	if (dealIds.length === 0) {
+		return {
+			criteria: {
+				status: input.status ?? "open",
+				inactiveForDays: input.inactiveForDays ?? null,
+				companyId: input.companyId ?? null,
+				ownerId: input.ownerId ?? null,
+			},
+			asOf: new Date().toISOString(),
+			deals: [],
+			hasMore: false,
+			nextCursor: null,
+		};
+	}
+	return listDeals({ ...input, ids: dealIds });
+}
+
+export async function researchRunAccountNews(
+	runId: string,
+	input: { companyId: string; companyName: string },
+) {
+	const run = await runContext(runId);
+	assertResourceAllowed(run.recordScope, run.allowedResources, {
+		kind: "company",
+		id: input.companyId,
+	});
+
+	if (!(await enabled(WEB_RESEARCH))) return unavailable(WEB_RESEARCH_SOURCE);
+
+	const answer = await ask(
+		`What has ${input.companyName} announced in the last 30 days? Specifically: new product launches, executive hires, funding rounds, or events they are hosting or attending. Cite sources.`,
+		{
+			system:
+				"You are watching one company for a B2B sales team. State only what your sources support, with recency. If there is nothing new, say so plainly rather than restating old news.",
+		},
+	);
+
+	if (!answer.ok) return { ok: false as const, reason: answer.reason };
+	return {
+		ok: true as const,
+		companyId: input.companyId,
+		answer: answer.data.text,
+		citations: answer.data.citations,
+	};
+}
+
+export async function listRunHistory(runId: string, input: { limit: number }) {
+	const run = await db.agentRun.findUnique({
+		where: { id: runId },
+		select: { agentId: true },
+	});
+	if (!run) throw new Error("This agent run is unavailable.");
+
+	const rows = await db.agentRun.findMany({
+		where: { agentId: run.agentId, status: "SUCCEEDED", id: { not: runId } },
+		orderBy: { finishedAt: "desc" },
+		take: input.limit,
+		select: { id: true, finishedAt: true, summary: true, result: true },
+	});
+
+	return rows.map((row) => ({
+		runId: row.id,
+		finishedAt: row.finishedAt,
+		summary: row.summary,
+		result: runResultOf(row.result ?? {}),
+	}));
 }
 
 export async function readRunRecord(
