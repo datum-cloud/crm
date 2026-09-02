@@ -50,6 +50,3 @@ yarn-error.log*
 
 # Agent scratch files
 .scratch/
-
-# Plain-language feature explainers, not tracked in the repo
-/features-id/
