@@ -1,9 +1,14 @@
+import { previewSiblingUrl } from "@crm/env/preview";
+
 const ISSUER = "crm-app";
 const AUDIENCE = "crm-agent";
 
 const TTL_SECONDS = 120;
 
-export const AGENT_URL = process.env.AGENT_URL ?? "http://127.0.0.1:2000";
+export const AGENT_URL =
+	previewSiblingUrl("agent") ??
+	process.env.AGENT_URL ??
+	"http://127.0.0.1:2000";
 
 export function bridgeConfigured(): boolean {
 	return Boolean(process.env.AGENT_BRIDGE_SECRET);

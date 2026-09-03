@@ -1,9 +1,11 @@
 import { loadRootEnv } from "@crm/env";
+import { previewSiblingUrl } from "@crm/env/preview";
 import type { NextConfig } from "next";
 
 loadRootEnv();
 
 const apiUrl =
+	previewSiblingUrl("api") ??
 	process.env.API_URL ??
 	process.env.NEXT_PUBLIC_API_URL ??
 	"http://localhost:3001";
