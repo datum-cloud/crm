@@ -229,6 +229,7 @@ export const auth = betterAuth({
 
 		sso({
 			organizationProvisioning: { disabled: true },
+			trustEmailVerified: true,
 		}),
 
 		apiKey({
