@@ -1,5 +1,35 @@
 # Changelog
 
+## [1.16.0](https://github.com/datum-cloud/crm/compare/v1.15.3...v1.16.0) (2026-09-04)
+
+
+### Features
+
+* **agent:** add account news-watch runner tools ([9e767f3](https://github.com/datum-cloud/crm/commit/9e767f377ec07be11f0439bebd8b6a102148af49))
+* **agent:** add scheduled deal-sweep tool and daily-tasks preset ([12798be](https://github.com/datum-cloud/crm/commit/12798be393b78ccdd73d080d98aea856c29959e0))
+* **agent:** add scheduled deal-sweep tool and daily-tasks preset ([9e767f3](https://github.com/datum-cloud/crm/commit/9e767f377ec07be11f0439bebd8b6a102148af49))
+* **agent:** log account-news-watch findings as CRM notes ([9e767f3](https://github.com/datum-cloud/crm/commit/9e767f377ec07be11f0439bebd8b6a102148af49))
+* **agent:** support direct Perplexity API alongside AI Gateway ([9e767f3](https://github.com/datum-cloud/crm/commit/9e767f377ec07be11f0439bebd8b6a102148af49))
+* **app:** add stale deals card to the overview dashboard ([9e767f3](https://github.com/datum-cloud/crm/commit/9e767f377ec07be11f0439bebd8b6a102148af49))
+* **env:** point preview deployments at their sibling previews ([8aa9256](https://github.com/datum-cloud/crm/commit/8aa925602d0edaf02532b6e1e7c6d17e29520c87))
+* **env:** point preview deployments at their sibling previews ([e094e12](https://github.com/datum-cloud/crm/commit/e094e127ec6512f91020b41ba134ae8c0d45545a))
+
+
+### Fixes
+
+* **agent:** replace unsafe dictionary types in perplexity.spec.ts ([9e767f3](https://github.com/datum-cloud/crm/commit/9e767f377ec07be11f0439bebd8b6a102148af49))
+* **app:** pass API_URL and APP_URL through the Vercel build ([6a3c38d](https://github.com/datum-cloud/crm/commit/6a3c38dca020c538f7f2c3e5e106412b50f019ca))
+* **auth:** trust an SSO provider's emailVerified claim for account linking ([2315398](https://github.com/datum-cloud/crm/commit/2315398f1f345b21932b0b36ee8b47c828a3ffc1))
+* **auth:** trust an SSO provider's emailVerified claim for account linking ([86b25ab](https://github.com/datum-cloud/crm/commit/86b25ab2c190c7c7b47c1be0002e5645fdb38c8f))
+* **db:** load repo-root .env in db:test ([9e767f3](https://github.com/datum-cloud/crm/commit/9e767f377ec07be11f0439bebd8b6a102148af49))
+* stop a builder-dispatch race and a currency-formatter hydration mismatch ([f41defe](https://github.com/datum-cloud/crm/commit/f41defef47bfac61812307aeb2aeb3b47550b1b6))
+* stop a builder-dispatch race and a currency-formatter hydration mismatch ([a5875d8](https://github.com/datum-cloud/crm/commit/a5875d82164648a0b422292cc78a8518f94f3ab3))
+
+
+### Documentation
+
+* add step-by-step usage to daily-deal-agents guide ([9e767f3](https://github.com/datum-cloud/crm/commit/9e767f377ec07be11f0439bebd8b6a102148af49))
+
 ## [1.15.3](https://github.com/trycompai/crm/compare/v1.15.2...v1.15.3) (2026-08-21)
 
 
