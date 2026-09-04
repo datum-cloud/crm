@@ -7,9 +7,15 @@ import {
 	enabled,
 	markdownFor,
 	unavailable,
+	WEB_RESEARCH,
 } from "../agent/lib/capabilities";
 
-const KEYS = ["PERPLEXITY_API_KEY", "BLOB_READ_WRITE_TOKEN"] as const;
+const KEYS = [
+	"PERPLEXITY_API_KEY",
+	"AI_GATEWAY_API_KEY",
+	"VERCEL_OIDC_TOKEN",
+	"BLOB_READ_WRITE_TOKEN",
+] as const;
 
 const saved: Record<string, string | undefined> = {};
 
@@ -30,25 +36,35 @@ afterEach(() => {
 describe("capabilities", () => {
 	it("reports everything off on a bare install", async () => {
 		expect(capabilitiesFrom(null).every((c) => !c.enabled)).toBe(true);
-		expect(await enabled("PERPLEXITY_API_KEY")).toBe(false);
+		expect(await enabled(WEB_RESEARCH)).toBe(false);
 	});
 
 	it("turns one on without turning on the others", async () => {
-		process.env.PERPLEXITY_API_KEY = "pplx-test";
+		process.env.AI_GATEWAY_API_KEY = "vck-test";
 
-		expect(await enabled("PERPLEXITY_API_KEY")).toBe(true);
+		expect(await enabled(WEB_RESEARCH)).toBe(true);
 		expect(await enabled("BLOB_READ_WRITE_TOKEN")).toBe(false);
 	});
 
 	it("treats blank and whitespace as unset", async () => {
-		process.env.PERPLEXITY_API_KEY = "   ";
-		expect(await enabled("PERPLEXITY_API_KEY")).toBe(false);
+		process.env.AI_GATEWAY_API_KEY = "   ";
+		expect(await enabled(WEB_RESEARCH)).toBe(false);
 	});
 
 	it("is read live, so a late-configured process is not stuck off", async () => {
-		expect(await enabled("PERPLEXITY_API_KEY")).toBe(false);
-		process.env.PERPLEXITY_API_KEY = "key";
-		expect(await enabled("PERPLEXITY_API_KEY")).toBe(true);
+		expect(await enabled(WEB_RESEARCH)).toBe(false);
+		process.env.AI_GATEWAY_API_KEY = "key";
+		expect(await enabled(WEB_RESEARCH)).toBe(true);
+	});
+
+	it("is also on with Vercel OIDC alone, no gateway key needed", async () => {
+		process.env.VERCEL_OIDC_TOKEN = "oidc-test";
+		expect(await enabled(WEB_RESEARCH)).toBe(true);
+	});
+
+	it("is also on with a direct Perplexity key alone, no gateway needed", async () => {
+		process.env.PERPLEXITY_API_KEY = "pplx-test";
+		expect(await enabled(WEB_RESEARCH)).toBe(true);
 	});
 
 	it("is unknown for a variable that is not a capability", async () => {
@@ -135,7 +151,7 @@ describe("the capability briefing", () => {
 	});
 
 	it("counts a stored Context key as configured", () => {
-		process.env.PERPLEXITY_API_KEY = "key";
+		process.env.AI_GATEWAY_API_KEY = "key";
 
 		const markdown = markdownFor(capabilitiesFrom("ctx"));
 

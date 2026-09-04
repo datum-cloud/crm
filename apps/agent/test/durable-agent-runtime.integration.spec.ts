@@ -1,5 +1,5 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "bun:test";
-import { db } from "@crm/db";
+import { DealStage, db } from "@crm/db";
 import type { SendFn } from "eve/channels";
 import { z } from "zod";
 import audit from "../agent/hooks/audit";
@@ -16,6 +16,9 @@ import {
 import {
 	createRunActivity,
 	finishRun,
+	listRunDeals,
+	listRunHistory,
+	researchRunAccountNews,
 	runResultOf,
 	stageRunResult,
 } from "../agent/lib/run-runtime";
@@ -29,6 +32,8 @@ let agentId = "";
 let versionId = "";
 let companyId = "";
 let otherCompanyId = "";
+let dealId = "";
+let otherDealId = "";
 let triggerId = "";
 const builderConversationIds: string[] = [];
 
@@ -52,6 +57,29 @@ beforeAll(async () => {
 	]);
 	companyId = company.id;
 	otherCompanyId = otherCompany.id;
+
+	const [deal, otherDeal] = await Promise.all([
+		db.deal.create({
+			data: {
+				name: "In-scope deal",
+				companyId,
+				ownerId: userId,
+				stage: DealStage.QUALIFIED_TO_BUY,
+			},
+			select: { id: true },
+		}),
+		db.deal.create({
+			data: {
+				name: "Out-of-scope deal",
+				companyId: otherCompanyId,
+				ownerId: userId,
+				stage: DealStage.QUALIFIED_TO_BUY,
+			},
+			select: { id: true },
+		}),
+	]);
+	dealId = deal.id;
+	otherDealId = otherDeal.id;
 
 	const agent = await db.agentDefinition.create({
 		data: {
@@ -175,6 +203,7 @@ afterAll(async () => {
 		await db.agentVersion.deleteMany({ where: { agentId } });
 		await db.agentDefinition.deleteMany({ where: { id: agentId } });
 	}
+	await db.deal.deleteMany({ where: { id: { in: [dealId, otherDealId] } } });
 	await db.company.deleteMany({
 		where: { id: { in: [companyId, otherCompanyId] } },
 	});
@@ -195,6 +224,65 @@ async function createRun(
 			status,
 			startedAt,
 			sessionId,
+			idempotencyKey: `durable-run-${crypto.randomUUID()}`,
+			correlationId: crypto.randomUUID(),
+			events: { create: { sequence: 0, type: "run.queued", data: {} } },
+		},
+		select: { id: true },
+	});
+}
+
+async function createScopedRun(
+	number: number,
+	dataScope: {
+		mode: "SELECTED" | "WORKSPACE";
+		summary: string;
+		resources: { kind: "company" | "deal"; id: string; label: string }[];
+	},
+) {
+	const scopedVersion = await db.agentVersion.create({
+		data: {
+			agentId,
+			number,
+			status: "DEPLOYED",
+			instructions: "List deals in scope.",
+			manifest: {
+				triggers: [
+					{
+						type: "SCHEDULE",
+						name: "Every hour",
+						summary: "Run every hour",
+						config: {
+							nextRunAt: new Date().toISOString(),
+							intervalMinutes: 60,
+						},
+					},
+				],
+				dataScope,
+				actions: [
+					{
+						type: "run.summary",
+						provider: "crm",
+						summary: "Summarize the run",
+					},
+				],
+			},
+			modelId: "test/model",
+			sandboxPolicy: {},
+			createdById: userId,
+			approvedAt: new Date(),
+			deployedAt: new Date(),
+		},
+		select: { id: true },
+	});
+
+	return db.agentRun.create({
+		data: {
+			agentId,
+			versionId: scopedVersion.id,
+			triggerType: "SCHEDULE",
+			status: "RUNNING",
+			startedAt: new Date(),
 			idempotencyKey: `durable-run-${crypto.randomUUID()}`,
 			correlationId: crypto.randomUUID(),
 			events: { create: { sequence: 0, type: "run.queued", data: {} } },
@@ -850,5 +938,119 @@ describe("durable custom-agent runtime", () => {
 				where: { idempotencyKey: `${run.id}:unapproved-task` },
 			}),
 		).toBe(0);
+	});
+
+	it("scopes list_deals to the run's approved deal ids", async () => {
+		const run = await createScopedRun(2, {
+			mode: "SELECTED",
+			summary: "Only the in-scope deal",
+			resources: [{ kind: "deal", id: dealId, label: "In-scope deal" }],
+		});
+
+		const result = await listRunDeals(run.id, { status: "all" });
+		expect(result.deals.map((deal) => deal.id)).toEqual([dealId]);
+	});
+
+	it("returns an empty page, not an error, when no deals are approved", async () => {
+		const run = await createScopedRun(3, {
+			mode: "SELECTED",
+			summary: "No deals approved",
+			resources: [
+				{ kind: "company", id: companyId, label: "Durable Runtime Company" },
+			],
+		});
+
+		const result = await listRunDeals(run.id, { status: "all" });
+		expect(result).toMatchObject({
+			deals: [],
+			hasMore: false,
+			nextCursor: null,
+		});
+	});
+
+	it("returns every matching deal for a workspace-scoped run", async () => {
+		const run = await createScopedRun(4, {
+			mode: "WORKSPACE",
+			summary: "The whole pipeline",
+			resources: [],
+		});
+
+		const result = await listRunDeals(run.id, { status: "all" });
+		expect(result.deals.map((deal) => deal.id).sort()).toEqual(
+			[dealId, otherDealId].sort(),
+		);
+	});
+
+	it("rejects account news research for a company outside the run's approved scope", async () => {
+		const run = await createScopedRun(5, {
+			mode: "SELECTED",
+			summary: "Only the in-scope company",
+			resources: [
+				{ kind: "company", id: companyId, label: "Durable Runtime Company" },
+			],
+		});
+
+		let scopeError: Error | null = null;
+		try {
+			await researchRunAccountNews(run.id, {
+				companyId: otherCompanyId,
+				companyName: "Out of Scope Company",
+			});
+		} catch (error) {
+			scopeError = error as Error;
+		}
+		expect(scopeError?.message).toContain(
+			"outside this agent version's approved scope",
+		);
+	});
+
+	it("reports account news research as unavailable rather than erroring when web research is unconfigured", async () => {
+		const run = await createScopedRun(6, {
+			mode: "SELECTED",
+			summary: "Only the in-scope company",
+			resources: [
+				{ kind: "company", id: companyId, label: "Durable Runtime Company" },
+			],
+		});
+
+		const gatewayKey = process.env.AI_GATEWAY_API_KEY;
+		const oidcToken = process.env.VERCEL_OIDC_TOKEN;
+		delete process.env.AI_GATEWAY_API_KEY;
+		delete process.env.VERCEL_OIDC_TOKEN;
+
+		try {
+			const result = await researchRunAccountNews(run.id, {
+				companyId,
+				companyName: "Durable Runtime Company",
+			});
+			expect(result).toMatchObject({ ok: false, configured: false });
+		} finally {
+			if (gatewayKey !== undefined) process.env.AI_GATEWAY_API_KEY = gatewayKey;
+			if (oidcToken !== undefined) process.env.VERCEL_OIDC_TOKEN = oidcToken;
+		}
+	});
+
+	it("lists only this agent's own successful prior runs, most recent first", async () => {
+		const [older, newer] = await Promise.all([createRun(), createRun()]);
+		await Promise.all([
+			satisfyRequiredActivity(older.id, "history-older"),
+			satisfyRequiredActivity(newer.id, "history-newer"),
+		]);
+		await Promise.all([
+			finishRun(older.id, { summary: "Older run", result: {} }),
+			finishRun(newer.id, { summary: "Newer run", result: {} }),
+		]);
+		await db.agentRun.update({
+			where: { id: older.id },
+			data: { finishedAt: new Date(Date.now() - 60_000) },
+		});
+
+		const current = await createRun();
+		const history = await listRunHistory(current.id, { limit: 5 });
+		const ids = history.map((row) => row.runId);
+		expect(ids).toContain(older.id);
+		expect(ids).toContain(newer.id);
+		expect(ids).not.toContain(current.id);
+		expect(ids.indexOf(newer.id)).toBeLessThan(ids.indexOf(older.id));
 	});
 });

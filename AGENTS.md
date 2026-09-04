@@ -14,6 +14,10 @@ context until you read them, and the rules in them are not optional.
 | The record sheet's Agent tab | `docs/agent-panel.md` |
 | `/settings/connections`, integrations, the intake endpoint | `docs/connections.md` |
 | The tracking script, the collector, form submissions | `docs/tracking.md` |
+| Daily/scheduled deal-sweep agents, the deal-listing runner tool | `docs/features/daily-deal-agents.md` |
+| Account news watch agents, the account-research runner tool | `docs/features/account-news-watch.md` |
+| The dashboard's stale-deals card | `docs/features/stale-deals-widget.md` |
+| `perplexity.ts`, `research_person`, `research_account_news`, web research | `docs/features/web-research-backend.md` |
 | Running it locally, Google Cloud, DB commands, secrets | `docs/setup.md` |
 | Anything that sends a telemetry event, or a new property on one | `docs/telemetry.md` |
 | `.github/workflows`, versions, changelog, how a change reaches `release` | `CONTRIBUTING.md` |

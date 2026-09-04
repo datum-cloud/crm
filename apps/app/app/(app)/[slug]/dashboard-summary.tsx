@@ -66,6 +66,17 @@ const TASK_COLUMNS: SimpleTableColumn[] = [
 	{ id: "task", header: "Task" },
 	{ id: "overdue", header: "Overdue", width: "w-24", align: "right" },
 ];
+const STALE_COLUMNS: SimpleTableColumn[] = [
+	{ id: "deal", header: "Deal" },
+	{
+		id: "stage",
+		header: "Stage",
+		width: "w-32",
+		className: "hidden lg:table-cell",
+	},
+	{ id: "inactive", header: "Inactive", width: "w-28", align: "right" },
+	{ id: "value", header: "Value", width: "w-20", align: "right" },
+];
 const ACTIVITY_COLUMNS: SimpleTableColumn[] = [
 	{ id: "activity", header: "Activity" },
 	{
@@ -122,7 +133,7 @@ export function DashboardSummary() {
 		);
 	}
 
-	const { biggestOpen, overdueTasks, recentActivity } = summary;
+	const { biggestOpen, staleDeals, overdueTasks, recentActivity } = summary;
 
 	const mine = scope === "me";
 	const largestOpenCents = biggestOpen[0]?.baseAmountCents ?? 0;
@@ -261,6 +272,54 @@ export function DashboardSummary() {
 					</CardPanel>
 				</Card>
 			</div>
+
+			<Card className="min-w-0">
+				<CardHeader>
+					<CardTitle>Stale deals</CardTitle>
+					<CardDescription>
+						Open deals with no activity for {formatCount(14, "day")} or more
+					</CardDescription>
+					<CardAction>
+						<Button asChild variant="contrast" size="sm">
+							<Link href={workspaceUrl("/deals")}>Open deals</Link>
+						</Button>
+					</CardAction>
+				</CardHeader>
+				<CardPanel>
+					{staleDeals.length === 0 ? (
+						<CardPanelEmpty>
+							Nothing has gone quiet. Every open deal has moved recently.
+						</CardPanelEmpty>
+					) : (
+						<SimpleTable variant="panel" surface="page" columns={STALE_COLUMNS}>
+							{staleDeals.map((deal) => (
+								<SimpleTableRow
+									key={deal.id}
+									clickable
+									onClick={() => openRecord({ kind: "deal", id: deal.id })}
+								>
+									<TableCell className={CELL}>
+										<DealCell name={deal.name} company={deal.company} />
+									</TableCell>
+									<TableCell className={`${CELL} hidden lg:table-cell`}>
+										<DealStageIndicator stage={deal.stage} />
+									</TableCell>
+									<TableCell className={`${CELL} text-right tabular-nums`}>
+										{formatCount(deal.daysSinceLastActivity, "day")}
+									</TableCell>
+									<TableCell className={`${CELL} text-right tabular-nums`}>
+										{deal.amountCents === null ? (
+											<EmptyCellValue />
+										) : (
+											formatMoneyCompact(deal.amountCents, deal.currency)
+										)}
+									</TableCell>
+								</SimpleTableRow>
+							))}
+						</SimpleTable>
+					)}
+				</CardPanel>
+			</Card>
 
 			<Card className="min-w-0">
 				<CardHeader>

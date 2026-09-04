@@ -9,10 +9,10 @@ import { toast } from "sonner";
 import { useTRPC } from "@/lib/trpc/client";
 import { useWorkspaceUrl } from "@/lib/use-workspace-url";
 import { AgentComposer, type BuilderComposerPrompt } from "./agent-composer";
+import { DailyDealSweepPreset } from "./daily-deal-sweep-preset";
 
 const SUGGESTIONS = [
 	"Brief every deal owner before a renewal call",
-	"Flag deals with no activity for 14 days",
 	"Hand new customers from Sales to Onboarding",
 ];
 
@@ -69,6 +69,22 @@ export function AgentBuilderHome({ name }: { name: string }) {
 				</p>
 
 				<div className="pt-1">
+					<p className="flex h-7 items-center text-muted-foreground text-xs">
+						Daily tasks
+					</p>
+					<DailyDealSweepPreset
+						onCreate={({ message, resources }) =>
+							create.mutate({
+								clientRequestId: crypto.randomUUID(),
+								commandType: "CREATE_AGENT",
+								message,
+								resources,
+								attachments: [],
+							})
+						}
+						pending={create.isPending}
+					/>
+
 					<p className="flex h-7 items-center text-muted-foreground text-xs">
 						Suggested agents
 					</p>

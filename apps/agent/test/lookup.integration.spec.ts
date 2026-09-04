@@ -238,4 +238,32 @@ describe("listDeals", () => {
 		});
 		expect(second.deals[0]?.id).not.toBe(first.deals[0]?.id);
 	});
+
+	it("narrows to explicit ids while preserving pagination", async () => {
+		const now = new Date("2026-08-05T12:00:00.000Z");
+
+		const first = await listDeals({
+			status: "all",
+			inactiveForDays: 14,
+			ids: [dealId, closedDealId],
+			limit: 1,
+			now,
+		});
+		expect(first.hasMore).toBe(true);
+		expect(first.nextCursor).toBeTruthy();
+		expect(first.deals[0]?.id).not.toBe(freshDealId);
+
+		const second = await listDeals({
+			status: "all",
+			inactiveForDays: 14,
+			ids: [dealId, closedDealId],
+			limit: 1,
+			cursor: first.nextCursor ?? undefined,
+			now,
+		});
+		expect(second.hasMore).toBe(false);
+
+		const ids = [first.deals[0]?.id, second.deals[0]?.id].sort();
+		expect(ids).toEqual([dealId, closedDealId].sort());
+	});
 });

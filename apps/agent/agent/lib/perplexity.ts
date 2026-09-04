@@ -1,5 +1,10 @@
+import { DEFAULT_AGENT_MODEL } from "@crm/db/settings";
+import { gateway, generateText, stepCountIs } from "ai";
+import { selectedModel } from "./model";
+
 const ENDPOINT = "https://api.perplexity.ai/chat/completions";
 const TIMEOUT_MS = 45_000;
+const MAX_STEPS = 3;
 
 export type Answer = {
 	text: string;
@@ -8,23 +13,27 @@ export type Answer = {
 
 type Outcome<T> = { ok: true; data: T } | { ok: false; reason: string };
 
-export function perplexityEnabled(): boolean {
-	return Boolean(process.env.PERPLEXITY_API_KEY);
-}
-
 export type AskOptions = {
-	model?: "sonar" | "sonar-pro";
 	domains?: string[];
 	system?: string;
+	maxResults?: number;
 };
 
 export async function ask(
 	question: string,
 	options: AskOptions = {},
 ): Promise<Outcome<Answer>> {
-	const apiKey = process.env.PERPLEXITY_API_KEY;
-	if (!apiKey) return { ok: false, reason: "No PERPLEXITY_API_KEY." };
+	const apiKey = process.env.PERPLEXITY_API_KEY?.trim();
+	return apiKey
+		? askPerplexityDirect(question, options, apiKey)
+		: askViaGateway(question, options);
+}
 
+async function askPerplexityDirect(
+	question: string,
+	options: AskOptions,
+	apiKey: string,
+): Promise<Outcome<Answer>> {
 	const controller = new AbortController();
 	const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
@@ -37,7 +46,7 @@ export async function ask(
 			},
 			signal: controller.signal,
 			body: JSON.stringify({
-				model: options.model ?? "sonar",
+				model: (options.maxResults ?? 5) >= 10 ? "sonar-pro" : "sonar",
 				messages: [
 					...(options.system
 						? [{ role: "system", content: options.system }]
@@ -64,6 +73,57 @@ export async function ask(
 		const citations =
 			body.citations ??
 			(body.search_results ?? []).flatMap((r) => (r.url ? [r.url] : []));
+
+		return { ok: true, data: { text, citations } };
+	} catch (error) {
+		const aborted = error instanceof Error && error.name === "AbortError";
+		return {
+			ok: false,
+			reason: aborted
+				? `Timed out after ${TIMEOUT_MS}ms.`
+				: error instanceof Error
+					? error.message
+					: String(error),
+		};
+	} finally {
+		clearTimeout(timer);
+	}
+}
+
+type PerplexitySearchResult = { url?: string };
+type PerplexitySearchOutput = { results?: PerplexitySearchResult[] };
+
+async function askViaGateway(
+	question: string,
+	options: AskOptions,
+): Promise<Outcome<Answer>> {
+	const controller = new AbortController();
+	const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+	try {
+		const model = (await selectedModel())?.model ?? DEFAULT_AGENT_MODEL.id;
+		const result = await generateText({
+			model,
+			system: options.system,
+			prompt: question,
+			tools: {
+				perplexity_search: gateway.tools.perplexitySearch({
+					maxResults: options.maxResults ?? 5,
+					searchDomainFilter: options.domains,
+				}),
+			},
+			stopWhen: stepCountIs(MAX_STEPS),
+			abortSignal: controller.signal,
+		});
+
+		const text = result.text.trim();
+		if (!text) return { ok: false, reason: "Empty answer." };
+
+		const citations = result.toolResults.flatMap((call) => {
+			if (call.toolName !== "perplexity_search") return [];
+			const output = call.output as PerplexitySearchOutput | undefined;
+			return (output?.results ?? []).flatMap((r) => (r.url ? [r.url] : []));
+		});
 
 		return { ok: true, data: { text, citations } };
 	} catch (error) {

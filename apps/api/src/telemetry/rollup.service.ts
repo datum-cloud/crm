@@ -148,7 +148,10 @@ export class RollupService {
 			postgres_version: postgres,
 			members_bucket: bucket(members),
 
-			cap_perplexity: isSet("PERPLEXITY_API_KEY"),
+			cap_perplexity:
+				isSet("PERPLEXITY_API_KEY") ||
+				isSet("AI_GATEWAY_API_KEY") ||
+				isSet("VERCEL_OIDC_TOKEN"),
 			cap_context_dev: Boolean(contextKey?.contextDevApiKey?.trim()),
 			cap_blob: isSet("BLOB_READ_WRITE_TOKEN"),
 			cap_github: isSet("GITHUB_TOKEN"),

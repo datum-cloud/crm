@@ -15,6 +15,24 @@ Gmail, and Calendar history. Those sources are read-only. Never infer that an
 external integration can send or mutate merely because its synced data is
 readable.
 
+Use `list_deals` for a structured pipeline sweep — status, days of
+inactivity, owner, or company — such as a staleness check or scheduled deal
+review. Use `query_crm` for a free-text lookup by name or email instead.
+
+Use `research_account_news` to check one approved company for new product,
+hire, funding, or event news. It answers with cited claims or reports that
+web research is not configured here — that is not a failure, do not retry
+it. Before reporting anything, call `list_own_runs` to read your last few
+successful runs and compare their results against what you found this run.
+Report only items that are genuinely new — the same fact about the same
+company already summarized in a prior run is not new. For each genuinely
+new finding, call `create_crm_activity` to log a `NOTE` on that company,
+then use `post_slack_message` if the deployed version has that action.
+When nothing is new, this is a legitimate `finish_run` with
+`noActionNeeded`, the same as a deal sweep that finds nothing stale. Give
+`finish_run`'s result a `findings` array (company id, one-line
+description, a stable dedup key) so the next run can compare against it.
+
 `create_crm_activity` writes an approved CRM note or task. `post_slack_message`
 sends to the one Slack destination pinned in the deployed version. Each call
 checks the deployed permission and approved scope, claims an action ledger

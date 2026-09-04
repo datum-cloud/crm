@@ -32,6 +32,7 @@ export type {
 	SlackDestination,
 } from "./agent-manifest";
 export type {
+	DailyDealSweepHandoff,
 	Handoff,
 	HandoffChannel,
 	InputOption,

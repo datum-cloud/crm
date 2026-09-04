@@ -18,6 +18,8 @@ const TREND_MONTHS = 6;
 
 const RATE_WINDOW_DAYS = 90;
 
+const STALE_DEAL_DAYS = 14;
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const MONTH_LABEL = new Intl.DateTimeFormat("en-US", { month: "short" });
@@ -47,6 +49,7 @@ export class DashboardService {
 		const startOfPrevMonth = monthStart(now, -1);
 		const trendStart = monthStart(now, -(TREND_MONTHS - 1));
 		const rateStart = new Date(now.getTime() - RATE_WINDOW_DAYS * DAY_MS);
+		const staleCutoff = new Date(now.getTime() - STALE_DEAL_DAYS * DAY_MS);
 
 		const base = await this.conversion.reportingCurrency();
 		const counted = this.conversion.countedWhere(base);
@@ -57,6 +60,7 @@ export class DashboardService {
 			recentDeals,
 			closingThisMonthTotals,
 			biggestOpen,
+			staleDeals,
 			overdueTasks,
 			recentActivity,
 			unconverted,
@@ -120,6 +124,42 @@ export class DashboardService {
 					baseCurrency: true,
 					expectedCloseDate: true,
 					stageChangedAt: true,
+					company: {
+						select: {
+							id: true,
+							name: true,
+							iconUrl: true,
+							iconDarkUrl: true,
+							iconTone: true,
+						},
+					},
+					owner: { select: OWNER_SELECT },
+				},
+			}),
+			this.db.deal.findMany({
+				where: {
+					...owned,
+					stage: { in: [...OPEN_DEAL_STAGES] },
+					OR: [
+						{ lastActivityAt: { lte: staleCutoff } },
+						{ lastActivityAt: null, createdAt: { lte: staleCutoff } },
+					],
+				},
+				orderBy: [
+					{ lastActivityAt: { sort: "asc", nulls: "first" } },
+					{ createdAt: "asc" },
+				],
+				take: 6,
+				select: {
+					id: true,
+					name: true,
+					stage: true,
+					amount: true,
+					currency: true,
+					baseAmount: true,
+					baseCurrency: true,
+					lastActivityAt: true,
+					createdAt: true,
 					company: {
 						select: {
 							id: true,
@@ -276,6 +316,24 @@ export class DashboardService {
 					}),
 				)
 				.sort((a, b) => (b.baseAmountCents ?? -1) - (a.baseAmountCents ?? -1)),
+			staleDeals: staleDeals.map(
+				({
+					amount,
+					baseAmount,
+					baseCurrency,
+					lastActivityAt,
+					createdAt,
+					...deal
+				}) => ({
+					...deal,
+					amountCents: toCents(amount),
+					baseAmountCents: baseCurrency === base ? toCents(baseAmount) : null,
+					lastActivityAt: lastActivityAt?.toISOString() ?? null,
+					daysSinceLastActivity: Math.floor(
+						(now.getTime() - (lastActivityAt ?? createdAt).getTime()) / DAY_MS,
+					),
+				}),
+			),
 			overdueTasks: overdueTasks.map(({ dueAt, ...task }) => ({
 				...task,
 				dueAt: dueAt?.toISOString() ?? null,
