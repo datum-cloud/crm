@@ -73,8 +73,22 @@ export async function pendingBuilderSubmissionIds(): Promise<string[]> {
 
 export async function drainBuilder(send: SendFn): Promise<number> {
 	const ids = await pendingBuilderSubmissionIds();
-	await Promise.all(ids.map((id) => dispatchBuilderSubmission(id, send)));
-	return ids.length;
+	const outcomes = await Promise.all(
+		ids.map((id) =>
+			dispatchBuilderSubmission(id, send).then(
+				() => true,
+				(error) => {
+					console.error(
+						`[agent] builder submission ${id} could not be dispatched: ${
+							error instanceof Error ? error.message : String(error)
+						}`,
+					);
+					return false;
+				},
+			),
+		),
+	);
+	return outcomes.filter(Boolean).length;
 }
 
 export async function dispatchBuilderSubmission(
